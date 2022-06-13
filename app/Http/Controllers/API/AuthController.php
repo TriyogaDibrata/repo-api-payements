@@ -16,7 +16,6 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
-            'role_id' => 'required',
             'username' => 'required|string|max:255|unique:users'
         ]);
 
@@ -27,8 +26,9 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'role' => $request->role_id,
-            'password' => Hash::make($request->password)
+            'role' => $request->role,
+            'password' => Hash::make($request->password),
+            'username' => $request->username
          ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -50,16 +50,17 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()
-            ->json(['message' => 'Hi '.$user->name.', login success','access_token' => $token, 'token_type' => 'Bearer', ]);
+            ->json(['message' => 'Hi '.$user->name.', login success','access_token' => $token, 'token_type' => 'Bearer', 'user' => $user]);
     }
 
     // method for user logout and delete token
     public function logout()
     {
-        auth()->user()->tokens()->delete();
+        auth()->user()->currentAccessToken()->delete();
 
         return [
-            'message' => 'You have successfully logged out and the token was successfully deleted'
+            'message' => 'You have successfully logged out and the token was successfully deleted',
+            'success' => true
         ];
     }
 }

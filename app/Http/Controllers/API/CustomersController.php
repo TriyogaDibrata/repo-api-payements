@@ -17,13 +17,15 @@ class CustomersController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function index() {
-        $data = Customers::select('m_customers.*', 'cp.package_id')
-        ->join('t_customers_packages as cp', function($join){
-            $join->on('cp.customer_id', 'm_customers.id')
-            ->where('cp.status', '1');
+        $data = TCustomersPackages::select('c.*', 'p.id as package_id', 'p.name as package_name')
+        ->join('m_customers as c', function($join) {
+            $join->on('t_customers_packages.customer_id', 'c.id')
+            ->where('c.status', '1');
         })
-        ->where('m_customers.status', '1')
-        ->latest()->get();
+        ->join('m_packages as p', function($join) {
+            $join->on('t_customers_packages.package_id', 'p.id');
+        })->where('t_customers_packages.status', '1')->latest()->get();
+
         return response()->json(['success' => true, 'data' => CustomersResource::collection($data), 'msg' => 'Customers fetched']);
     }
     
@@ -37,8 +39,6 @@ class CustomersController extends Controller
     {
         $validator = Validator::make($request->all(),[
             'name' => 'required|string|max:255',
-            'phone' => 'unique:m_customers',
-            'email' => 'unique:m_customers|string|max:255',
             'package_id' => 'required'
         ]);
 
@@ -57,10 +57,14 @@ class CustomersController extends Controller
              'package_id' => $request->package_id
          ]);
          
-        $data = Customers::join('t_customers_packages as cp', function($join) {
-            $join->on('cp.customer_id', 'm_customers.id')
-            ->where('cp.status', '1');
-        })->where('m_customers.id', $customer->id)->get();
+        $data = TCustomersPackages::select('c.*', 'p.id as package_id', 'p.name as package_name')
+        ->join('m_customers as c', function($join) use($customer) {
+            $join->on('t_customers_packages.customer_id', 'c.id')
+            ->where('c.id', $customer->id);
+        })
+        ->join('m_packages as p', function($join) {
+            $join->on('t_customers_packages.package_id', 'p.id');
+        })->where('t_customers_packages.status', '1')->latest()->get();
         
         return response()->json(['success' => true, 'msg' => 'Customer added successfully.', 'data' => CustomersResource::collection($data)]);
     }
@@ -73,16 +77,19 @@ class CustomersController extends Controller
      */
     public function show($id)
     {
-        //$customer = Customers::find($id);
-        $customer = Customers::join('t_customers_packages as cp', function($join) {
-            $join->on('cp.customer_id', 'm_customers.id')
-            ->where('cp.status', '1');
-        })->where('m_customers.id', $id)->where('m_customers.status', '1')->first();
+        $data = TCustomersPackages::select('c.*', 'p.id as package_id', 'p.name as package_name')
+        ->join('m_customers as c', function($join) use($id) {
+            $join->on('t_customers_packages.customer_id', 'c.id')
+            ->where('c.id', $id);
+        })
+        ->join('m_packages as p', function($join) {
+            $join->on('t_customers_packages.package_id', 'p.id');
+        })->where('t_customers_packages.status', '1')->latest()->get();
         // dd($customer);
-        if (is_null($customer)) {
+        if (is_null($data)) {
             return response()->json('Data not found', 404);
         }
-        return response()->json(['success' => true, 'data' => new CustomersResource($customer)]);
+        return response()->json(['success' => true, 'data' => CustomersResource::collection($data)]);
     }
     
     /**
@@ -96,7 +103,6 @@ class CustomersController extends Controller
     {
         $validator = Validator::make($request->all(),[
             'name' => 'required|string|max:255',
-            'email' => 'string|max:255',
             'package_id' => 'required'
         ]);
 
@@ -124,12 +130,15 @@ class CustomersController extends Controller
         
         $customer->save();
         
-        $data = Customers::join('t_customers_packages as cp', function($join) {
-            $join->on('cp.customer_id', 'm_customers.id')
-            ->where('cp.status', '1');
-        })->where('m_customers.id', $customer->id)->first();
-        
-        return response()->json(['success' => true, 'msg' => 'Customer updated successfully.', 'data' => new CustomersResource($data)]);
+        $data = TCustomersPackages::select('c.*', 'p.id as package_id', 'p.name as package_name')
+        ->join('m_customers as c', function($join) use($customer) {
+            $join->on('t_customers_packages.customer_id', 'c.id')
+            ->where('c.id', $customer->id);
+        })
+        ->join('m_packages as p', function($join) {
+            $join->on('t_customers_packages.package_id', 'p.id');
+        })->where('t_customers_packages.status', '1')->latest()->get();
+        return response()->json(['success' => true, 'msg' => 'Customer updated successfully.', 'data' => CustomersResource::collection($data)]);
     }
     
     /**
@@ -140,8 +149,14 @@ class CustomersController extends Controller
      */
     public function destroy(Customers $customer)
     {
+        $custp = TCustomersPackages::where('customer_id', $customer->id)->where('status', 1)->first();
         $customer->status = 0;
-        $customer->save();
+        $saved = $customer->save();
+        
+        if($saved) {
+            $custp->status = 0;
+            $custp->save();
+        }
 
         return response()->json(['msg' => 'Customer deleted successfully', 'success' => true]);
     }

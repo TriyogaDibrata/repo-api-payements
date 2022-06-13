@@ -10,4 +10,11 @@ class TPayments extends Model
     use HasFactory;
     
     protected $table = 't_payments';
+
+    protected $fillable = [
+        'customer_id',
+        'package_id',
+        'bulan',
+        'tahun'
+    ];
 }

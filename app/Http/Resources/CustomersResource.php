@@ -21,6 +21,7 @@ class CustomersResource extends JsonResource
             'email' => $this->email,
             'status' => $this->status,
             'package_id' => $this->package_id,
+            'package_name' => $this->package_name,
             'created_at' => $this->created_at,
             'update_at' => $this->updated_at
         ];
